@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/notes_db
+    username: notes_user
+    password: notes_pass
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-this-secret-must-be-at-least-256-bits-long-in-production}
+    expiration-ms: 86400000
+
+server:
+  port: 8080
