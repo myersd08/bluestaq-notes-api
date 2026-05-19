@@ -5,6 +5,37 @@ A note owner can share their note with another registered user, granting that us
 
 ---
 
+## As Built
+
+**Status:** Fully implemented (2026-05-19)
+
+**Planned vs. built:**
+
+| Aspect | Spec | Built |
+|--------|------|-------|
+| Self-share response | 422 Unprocessable Entity | 422 Unprocessable Entity — built as specified |
+| All other status codes | As specified | As specified |
+| `ShareService` | Planned | `service/ShareService.java` — implements steps 1–5 exactly |
+| DTOs | `ShareRequest`, `ShareResponse` | Both implemented as Java records |
+| `Share` entity + migration | To be created | Already existed from notes-crud feature |
+| `existsByNoteIdAndSharedWithUserId` | To be created | Already existed from notes-crud feature |
+| `findByNoteIdAndSharedWithUserId` | To be created | Added to `ShareRepository` this feature |
+| `UserNotFoundException` | Not mentioned | Added — required to 404 on unknown target username |
+
+**Design & architecture decisions:**
+- `ShareService` is a dedicated service class rather than adding share logic to `NoteService`. Keeps ownership-check concerns in `NoteService` and share-creation concerns in `ShareService`; `NoteController` now depends on both.
+- Self-share detection compares `target.getId()` to `caller.getId()` (UUID equality) rather than comparing usernames. This is correct because the caller is the authenticated `User` entity resolved by UUID from the JWT.
+- The idempotency check uses `findByNoteIdAndSharedWithUserId` (returns `Optional<Share>`) rather than `existsByNoteIdAndSharedWithUserId` so the existing record's `createdAt` is returned on a re-share, preserving the original timestamp in the response.
+- `SelfShareException` maps to 422 via `GlobalExceptionHandler`. The request is well-formed and the username resolves to a real user — rejection is on semantic/business grounds (caller is the target), making 422 the correct HTTP status.
+
+**Gotchas & constraints:**
+- `POST /notes/{id}/share` returns 200 (not 201) for both new and idempotent shares — the endpoint is a command, not a resource creation, so 200 is correct per spec.
+- Ownership check happens before user lookup (step 2 before step 3). This means a non-owner targeting a non-existent username gets 403, not 404 — ownership gates everything downstream.
+- `@Transactional` on `ShareService.share()` is required: without it, the save and the subsequent read of `createdAt` could see stale data in some JPA flush modes.
+- Test teardown order: `shareRepository.deleteAll()` → `noteRepository.deleteAll()` → `userRepository.deleteAll()` — FK constraints require this order.
+
+---
+
 ## Endpoints
 
 ### POST /notes/{id}/share — Share a note

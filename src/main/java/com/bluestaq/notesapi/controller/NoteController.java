@@ -2,9 +2,12 @@ package com.bluestaq.notesapi.controller;
 
 import com.bluestaq.notesapi.dto.CreateNoteRequest;
 import com.bluestaq.notesapi.dto.NoteResponse;
+import com.bluestaq.notesapi.dto.ShareRequest;
+import com.bluestaq.notesapi.dto.ShareResponse;
 import com.bluestaq.notesapi.dto.UpdateNoteRequest;
 import com.bluestaq.notesapi.model.User;
 import com.bluestaq.notesapi.service.NoteService;
+import com.bluestaq.notesapi.service.ShareService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,6 +23,7 @@ import java.util.UUID;
 public class NoteController {
 
     private final NoteService noteService;
+    private final ShareService shareService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -51,5 +55,12 @@ public class NoteController {
     public void delete(@PathVariable UUID id,
                        @AuthenticationPrincipal User caller) {
         noteService.delete(id, caller);
+    }
+
+    @PostMapping("/{id}/share")
+    public ShareResponse share(@PathVariable UUID id,
+                               @Valid @RequestBody ShareRequest request,
+                               @AuthenticationPrincipal User caller) {
+        return shareService.share(id, request, caller);
     }
 }

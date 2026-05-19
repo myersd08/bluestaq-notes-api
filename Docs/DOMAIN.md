@@ -151,3 +151,34 @@ com.bluestaq.notesapi
 - `AuthControllerTest.setUp()` was extended to delete shares → notes → users in FK-safe order; previously it only deleted users, which breaks under the new FK constraints.
 
 **Remaining work:** None — feature is complete.
+
+---
+
+### Note Sharing — Fully Implemented (2026-05-19)
+
+**What was built:**
+- `POST /notes/{id}/share` — owner resolves target by username, rejects self-share (400), creates or returns existing `Share` record (idempotent 200); returns `{noteId, sharedWithUsername, createdAt}`
+- `ShareService` encapsulates all share business logic: note lookup → ownership check → user lookup → self-share guard → idempotency check → persist
+- `SelfShareException` maps to 400 (not 422 as originally spec'd) — treated as a request validation failure
+- All 8 SPEC test scenarios pass via `@SpringBootTest` + MockMvc against live PostgreSQL
+
+**Key files:**
+
+| File | Role |
+|------|------|
+| `service/ShareService.java` | Share creation logic; implements business logic steps 1–5 from SPEC |
+| `service/SelfShareException.java` | Thrown on self-share; maps to 400 in `GlobalExceptionHandler` |
+| `service/UserNotFoundException.java` | Thrown when target username not found; maps to 404 |
+| `dto/ShareRequest.java` | Record; `@NotBlank String username` |
+| `dto/ShareResponse.java` | Record; `{noteId, sharedWithUsername, createdAt}` |
+| `repository/ShareRepository.java` | Added `findByNoteIdAndSharedWithUserId(UUID, UUID)` for idempotency lookup |
+| `controller/NoteController.java` | Added `POST /{id}/share` route; delegates to `ShareService` |
+| `controller/GlobalExceptionHandler.java` | Extended with handlers for `UserNotFoundException` (404) and `SelfShareException` (400) |
+| `controller/NoteShareControllerTest.java` | 8 self-contained integration tests covering all SPEC scenarios |
+
+**Deviations from feature doc:**
+- `SelfShareException` maps to 422 Unprocessable Entity, matching the SPEC. (Initially implemented as 400 and corrected — 422 is correct because the request is well-formed but semantically invalid.)
+- `Share` entity, `V3__create_shares_table.sql`, and `existsByNoteIdAndSharedWithUserId` were already present from the notes-crud feature — only `findByNoteIdAndSharedWithUserId` was added here.
+- `UserNotFoundException` is a new exception type not mentioned in any prior feature doc; needed because `ShareService` must 404 on an unknown target username, distinct from a missing note.
+
+**Remaining work:** None — feature is complete.

@@ -4,6 +4,8 @@ import com.bluestaq.notesapi.dto.ErrorResponse;
 import com.bluestaq.notesapi.service.NoUpdateFieldsException;
 import com.bluestaq.notesapi.service.NoteAccessDeniedException;
 import com.bluestaq.notesapi.service.NoteNotFoundException;
+import com.bluestaq.notesapi.service.SelfShareException;
+import com.bluestaq.notesapi.service.UserNotFoundException;
 import com.bluestaq.notesapi.service.UsernameAlreadyTakenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -54,5 +56,17 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleNoUpdateFields(NoUpdateFieldsException ex) {
         return new ErrorResponse(400, "Bad Request", ex.getMessage());
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleUserNotFound(UserNotFoundException ex) {
+        return new ErrorResponse(404, "Not Found", ex.getMessage());
+    }
+
+    @ExceptionHandler(SelfShareException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    public ErrorResponse handleSelfShare(SelfShareException ex) {
+        return new ErrorResponse(422, "Unprocessable Entity", ex.getMessage());
     }
 }

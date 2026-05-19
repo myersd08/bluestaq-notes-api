@@ -25,7 +25,7 @@ com.bluestaq.notesapi
 ├── model/         JPA entities: User, Note, Share
 ├── repository/    Spring Data JPA repositories
 ├── security/      JwtTokenService, JwtAuthFilter, UserDetailsServiceImpl
-└── service/       AuthService, NoteService, ShareService (planned)
+└── service/       AuthService, NoteService, ShareService
 ```
 
 ---
@@ -110,7 +110,7 @@ Tests use `@SpringBootTest` + MockMvc against a live PostgreSQL database — the
 |---------|--------|-------|
 | Authentication (`/auth/**`) | ✅ Complete | All 7 test scenarios pass |
 | Notes CRUD (`/notes/**`) | ✅ Complete | All 10 test scenarios pass |
-| Note Sharing (`/notes/{id}/share`) | 🔲 Planned | Spec written; `Share` entity and DB table exist; `ShareService` and endpoint not yet implemented |
+| Note Sharing (`/notes/{id}/share`) | ✅ Complete | All 8 test scenarios pass |
 
 ---
 
@@ -142,13 +142,13 @@ Errors follow a consistent envelope:
 | GET | `/notes/{id}` | Yes | Get note (owner or shared recipient) |
 | PUT | `/notes/{id}` | Yes — owner only | Update title/content |
 | DELETE | `/notes/{id}` | Yes — owner only | Hard delete (cascades shares) |
-| POST | `/notes/{id}/share` | Yes — owner only | Grant read access to another user *(planned)* |
+| POST | `/notes/{id}/share` | Yes — owner only | Grant read access to another user (idempotent) |
 
 ---
 
 ## Example Usage
 
-A realistic flow from registration to sharing a note. Auth and notes CRUD are fully working; the share endpoint is planned.
+A realistic flow from registration to sharing a note.
 
 **Register**
 ```bash
@@ -205,12 +205,33 @@ curl -X DELETE http://localhost:8081/notes/<note-id> \
 # 204 No Content; 403 if not owner; 404 if not found
 ```
 
-**Share a note with bob** *(planned — not yet implemented)*
+**Register bob** (the share recipient)
+```bash
+curl -X POST http://localhost:8081/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "bob", "password": "s3cur3P@ss"}'
+# 201 → { "id": "...", "username": "bob", "createdAt": "..." }
+```
+
+**Share a note with bob** (owner only; idempotent — repeat calls return 200 without creating a duplicate)
 ```bash
 curl -X POST http://localhost:8081/notes/<note-id>/share \
-  -H "Authorization: Bearer <token>" \
+  -H "Authorization: Bearer <alice-token>" \
   -H "Content-Type: application/json" \
   -d '{"username": "bob"}'
+# 200 → { "noteId": "<note-id>", "sharedWithUsername": "bob", "createdAt": "..." }
+# 403 if caller is not the owner; 404 if note or username not found; 422 if sharing with yourself
+```
+
+**Access the shared note as bob**
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8081/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "bob", "password": "s3cur3P@ss"}' | jq -r .token)
+
+curl http://localhost:8081/notes/<note-id> \
+  -H "Authorization: Bearer $TOKEN"
+# 200 → note content (read-only; PUT and DELETE return 403)
 ```
 
 ---
@@ -238,7 +259,6 @@ curl -X POST http://localhost:8081/notes/<note-id>/share \
 
 ## Future Improvements
 
-- Complete note-sharing feature (`POST /notes/{id}/share`, `ShareService`)
 - Refresh token support with rotation
 - Pagination on `GET /notes`
 - Full-text search on note content
