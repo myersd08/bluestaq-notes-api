@@ -1,6 +1,9 @@
 package com.bluestaq.notesapi.controller;
 
 import com.bluestaq.notesapi.dto.ErrorResponse;
+import com.bluestaq.notesapi.service.NoUpdateFieldsException;
+import com.bluestaq.notesapi.service.NoteAccessDeniedException;
+import com.bluestaq.notesapi.service.NoteNotFoundException;
 import com.bluestaq.notesapi.service.UsernameAlreadyTakenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -33,5 +36,23 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handleBadCredentials(BadCredentialsException ex) {
         return new ErrorResponse(401, "Unauthorized", "Invalid username or password");
+    }
+
+    @ExceptionHandler(NoteNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleNoteNotFound(NoteNotFoundException ex) {
+        return new ErrorResponse(404, "Not Found", ex.getMessage());
+    }
+
+    @ExceptionHandler(NoteAccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleNoteAccessDenied(NoteAccessDeniedException ex) {
+        return new ErrorResponse(403, "Forbidden", ex.getMessage());
+    }
+
+    @ExceptionHandler(NoUpdateFieldsException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleNoUpdateFields(NoUpdateFieldsException ex) {
+        return new ErrorResponse(400, "Bad Request", ex.getMessage());
     }
 }

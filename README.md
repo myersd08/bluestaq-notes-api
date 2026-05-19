@@ -20,12 +20,12 @@ Client
 ```
 com.bluestaq.notesapi
 ├── config/        SecurityConfig — filter chain, password encoder
-├── controller/    AuthController, NoteController (planned), GlobalExceptionHandler
+├── controller/    AuthController, NoteController, GlobalExceptionHandler
 ├── dto/           Request/response Java records (no JPA annotations)
-├── model/         JPA entities: User, Note (planned), Share (planned)
+├── model/         JPA entities: User, Note, Share
 ├── repository/    Spring Data JPA repositories
 ├── security/      JwtTokenService, JwtAuthFilter, UserDetailsServiceImpl
-└── service/       AuthService, NoteService (planned), ShareService (planned)
+└── service/       AuthService, NoteService, ShareService (planned)
 ```
 
 ---
@@ -109,8 +109,8 @@ Tests use `@SpringBootTest` + MockMvc against a live PostgreSQL database — the
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Authentication (`/auth/**`) | ✅ Complete | All 7 test scenarios pass |
-| Notes CRUD (`/notes/**`) | 🔲 Planned | Spec written; implementation not yet started |
-| Note Sharing (`/notes/{id}/share`) | 🔲 Planned | Spec written; implementation not yet started |
+| Notes CRUD (`/notes/**`) | ✅ Complete | All 10 test scenarios pass |
+| Note Sharing (`/notes/{id}/share`) | 🔲 Planned | Spec written; `Share` entity and DB table exist; `ShareService` and endpoint not yet implemented |
 
 ---
 
@@ -133,7 +133,7 @@ Errors follow a consistent envelope:
 | POST | `/auth/register` | No | Create a new account |
 | POST | `/auth/login` | No | Receive a JWT |
 
-### Notes — 🔲 Planned
+### Notes CRUD — ✅ Implemented
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
@@ -142,13 +142,13 @@ Errors follow a consistent envelope:
 | GET | `/notes/{id}` | Yes | Get note (owner or shared recipient) |
 | PUT | `/notes/{id}` | Yes — owner only | Update title/content |
 | DELETE | `/notes/{id}` | Yes — owner only | Hard delete (cascades shares) |
-| POST | `/notes/{id}/share` | Yes — owner only | Grant read access to another user |
+| POST | `/notes/{id}/share` | Yes — owner only | Grant read access to another user *(planned)* |
 
 ---
 
 ## Example Usage
 
-A realistic flow from registration to sharing a note. **Only the auth steps work today** — the notes endpoints are planned.
+A realistic flow from registration to sharing a note. Auth and notes CRUD are fully working; the share endpoint is planned.
 
 **Register**
 ```bash
@@ -166,46 +166,51 @@ curl -X POST http://localhost:8081/auth/login \
 # 200 → { "token": "<jwt>", "expiresIn": 86400000 }
 ```
 
-**Create a note** *(planned)*
+**Create a note**
 ```bash
 curl -X POST http://localhost:8081/notes \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"title": "Shopping list", "content": "Milk, eggs, bread"}'
+# 201 → { "id": "<note-id>", "title": "Shopping list", "content": "...", "ownerId": "...", "createdAt": "...", "updatedAt": "..." }
 ```
 
-**List your notes** *(planned)*
+**List your notes**
 ```bash
 curl http://localhost:8081/notes \
   -H "Authorization: Bearer <token>"
+# 200 → [ { "id": "...", ... }, ... ]
 ```
 
-**Get a single note** *(planned)*
+**Get a single note**
 ```bash
 curl http://localhost:8081/notes/<note-id> \
   -H "Authorization: Bearer <token>"
+# 200 → note object; 403 if not owner or shared recipient; 404 if not found
 ```
 
-**Update a note** *(planned)*
+**Update a note** (owner only; supply title, content, or both)
 ```bash
 curl -X PUT http://localhost:8081/notes/<note-id> \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"content": "Milk, eggs, bread, butter"}'
+# 200 → updated note; 403 if not owner; 404 if not found
 ```
 
-**Share a note with bob** *(planned)*
+**Delete a note** (owner only; cascades to all shares)
+```bash
+curl -X DELETE http://localhost:8081/notes/<note-id> \
+  -H "Authorization: Bearer <token>"
+# 204 No Content; 403 if not owner; 404 if not found
+```
+
+**Share a note with bob** *(planned — not yet implemented)*
 ```bash
 curl -X POST http://localhost:8081/notes/<note-id>/share \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"username": "bob"}'
-```
-
-**Delete a note** *(planned)*
-```bash
-curl -X DELETE http://localhost:8081/notes/<note-id> \
-  -H "Authorization: Bearer <token>"
 ```
 
 ---
@@ -233,7 +238,7 @@ curl -X DELETE http://localhost:8081/notes/<note-id> \
 
 ## Future Improvements
 
-- Complete notes CRUD and sharing features
+- Complete note-sharing feature (`POST /notes/{id}/share`, `ShareService`)
 - Refresh token support with rotation
 - Pagination on `GET /notes`
 - Full-text search on note content

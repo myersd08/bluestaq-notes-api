@@ -1,5 +1,7 @@
 package com.bluestaq.notesapi.controller;
 
+import com.bluestaq.notesapi.repository.NoteRepository;
+import com.bluestaq.notesapi.repository.ShareRepository;
 import com.bluestaq.notesapi.repository.UserRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -33,11 +35,19 @@ class AuthControllerTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private NoteRepository noteRepository;
+
+    @Autowired
+    private ShareRepository shareRepository;
+
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
     @BeforeEach
     void setUp() {
+        shareRepository.deleteAll();
+        noteRepository.deleteAll();
         userRepository.deleteAll();
     }
 

@@ -5,6 +5,34 @@ Authenticated users can create, list, retrieve, update, and delete their own not
 
 ---
 
+## As Built
+
+**Status:** Fully implemented (2026-05-19)
+
+**Planned vs. built:**
+
+| Spec called for | What was built |
+|-----------------|----------------|
+| All 5 CRUD endpoints at `/notes` | Built as specified |
+| `NoteController`, `NoteService`, `Note`, `NoteRepository`, DTOs | Built as specified |
+| `GET /notes/{id}` returns note if owner OR shared | Built — requires `Share` entity and V3 migration (pulled forward from note-sharing feature) |
+| `DELETE /notes/{id}` cascades to shares | Built — handled via `ON DELETE CASCADE` in V3 migration, not application code |
+| `NoteRepository.findByIdAndOwnerIdOrShared` | Not implemented — `NoteService.get()` calls `findById()` then checks owner/share separately; simpler and equivalent |
+
+**Design & architecture decisions:**
+- V3 migration (`shares` table) and `Share` entity were created in this feature rather than deferred to note-sharing, because the "Get note shared with caller → 200" test scenario in this SPEC requires them to exist.
+- `@AuthenticationPrincipal User caller` is used in every controller method to extract the authenticated user — the `User` entity is stored directly as the principal in `SecurityContext` by `JwtAuthFilter`.
+- `updated_at` is managed by a `@PreUpdate` JPA callback on `Note`, not set explicitly in the service.
+- All entity relationships (owner_id, note_id, shared_with_user_id) are stored as raw UUID columns rather than `@ManyToOne` FK references, consistent with the existing `User` entity pattern.
+- Partial update semantics: `UpdateNoteRequest` has both fields nullable; the service applies only non-null fields and throws `NoUpdateFieldsException` (→ 400) if both are null.
+
+**Gotchas & constraints:**
+- `AuthControllerTest.setUp()` must delete shares → notes → users in that order. `userRepository.deleteAll()` alone violates the FK constraint from `notes.owner_id → users.id`.
+- `ObjectMapper` is not autowirable in the `@SpringBootTest` + `@AutoConfigureMockMvc` context in Spring Boot 4 — use `com.jayway.jsonpath.JsonPath` for JSON value extraction in tests instead.
+- The `shares` table unique constraint `uq_share (note_id, shared_with_user_id)` means attempting to share the same note with the same user twice will throw a DB constraint error; the note-sharing feature will need to handle that as idempotent (see DOMAIN.md business rule 5).
+
+---
+
 ## Endpoints
 
 ### POST /notes — Create a note

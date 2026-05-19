@@ -39,9 +39,9 @@ V4__add_title_to_notes.sql
 
 | Version | File | Feature | Status |
 |---------|------|---------|--------|
-| V1 | `V1__create_users_table.sql` | auth | Not started |
-| V2 | `V2__create_notes_table.sql` | notes-crud | Not started |
-| V3 | `V3__create_shares_table.sql` | note-sharing | Not started |
+| V1 | `V1__create_users_table.sql` | auth | Applied |
+| V2 | `V2__create_notes_table.sql` | notes-crud | Applied |
+| V3 | `V3__create_shares_table.sql` | notes-crud (shared access check) | Applied |
 
 Update this table when each migration file is created and again when it has been verified running against a clean database.
 

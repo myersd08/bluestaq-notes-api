@@ -114,3 +114,40 @@ com.bluestaq.notesapi
 - Docker PostgreSQL moved to port 5434 to avoid conflict with a native install on 5432
 
 **Remaining work:** None — feature is complete.
+
+---
+
+### Notes CRUD — Fully Implemented (2026-05-19)
+
+**What was built:**
+- `POST /notes` — creates a note owned by the JWT caller; returns 201 with full `NoteResponse`
+- `GET /notes` — returns all notes where `owner_id = caller.id`; empty array if none
+- `GET /notes/{id}` — returns the note if caller is owner OR has a `Share` record; 403 otherwise, 404 if missing
+- `PUT /notes/{id}` — partial update (title, content, or both); owner only; `updated_at` set via `@PreUpdate`; 400 if no fields provided
+- `DELETE /notes/{id}` — owner only; DB-level `ON DELETE CASCADE` removes associated `Share` records automatically
+- All 10 SPEC test scenarios pass against live PostgreSQL via `@SpringBootTest` + MockMvc
+
+**Key files:**
+
+| File | Role |
+|------|------|
+| `model/Note.java` | JPA entity; UUID PK, `owner_id` UUID FK, `@PrePersist`/`@PreUpdate` for timestamps |
+| `model/Share.java` | Minimal JPA entity for read-access grants; UUID PK, `note_id` + `shared_with_user_id` |
+| `repository/NoteRepository.java` | `findByOwnerId(UUID)` for list endpoint |
+| `repository/ShareRepository.java` | `existsByNoteIdAndSharedWithUserId(UUID, UUID)` for access check |
+| `service/NoteService.java` | Full CRUD + ownership/share authorization; `toResponse()` maps entity → DTO |
+| `controller/NoteController.java` | `POST/GET/PUT/DELETE /notes`; `@AuthenticationPrincipal User` extracts caller |
+| `dto/CreateNoteRequest.java` | Record; `@NotBlank` on `content`, `title` optional |
+| `dto/UpdateNoteRequest.java` | Record; both fields nullable, validated in service |
+| `dto/NoteResponse.java` | Record; `{id, title, content, ownerId, createdAt, updatedAt}` |
+| `controller/GlobalExceptionHandler.java` | Extended with 404/403/400 handlers for note exceptions |
+| `db/migration/V2__create_notes_table.sql` | Flyway migration for `notes` table |
+| `db/migration/V3__create_shares_table.sql` | Flyway migration for `shares` table with `ON DELETE CASCADE` |
+
+**Deviations from feature doc:**
+- V3 (`shares` table) and `Share` entity were implemented as part of this feature, not deferred to the note-sharing feature. Required because the SPEC test scenario "Get note shared with caller → 200" is impossible without the `shares` table existing.
+- `NoteRepository` spec mentioned `findByIdAndOwnerIdOrShared` — not implemented. Instead, `NoteService.get()` calls `findById()` then checks ownership/share separately, which is simpler and equally correct.
+- No `@ManyToOne` JPA relationships used — `ownerId`, `noteId`, `sharedWithUserId` are stored as raw `UUID` columns, consistent with the rest of the codebase.
+- `AuthControllerTest.setUp()` was extended to delete shares → notes → users in FK-safe order; previously it only deleted users, which breaks under the new FK constraints.
+
+**Remaining work:** None — feature is complete.
