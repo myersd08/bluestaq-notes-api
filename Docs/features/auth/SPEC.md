@@ -5,6 +5,30 @@ Users register with a username and password. On login they receive a JWT that mu
 
 ---
 
+## As Built
+
+**Status:** Fully implemented
+
+**Planned vs. built:** Built as specified. All endpoints, response shapes, HTTP status codes, and test scenarios match the spec exactly.
+
+**Design & architecture decisions:**
+
+- **`User` implements `UserDetails` directly.** Rather than a separate wrapper class, the JPA entity itself satisfies Spring Security's interface. This eliminates an extra class; the trade-off is a tighter coupling between the persistence model and the security framework. Acceptable here because the project has no second auth mechanism that would need to diverge.
+- **`JwtAuthFilter` loads user by UUID from `UserRepository`, not via `UserDetailsService`.** The JWT `sub` claim stores the user UUID (per spec), so looking up by username would require a round-trip to parse the UUID back to a username. The filter injects `UserRepository` directly and calls `findById(UUID)` instead.
+- **JWT signing key derived from raw UTF-8 bytes.** `Keys.hmacShaKeyFor(secret.getBytes(UTF_8))` rather than base64-decode, because the default secret in `application.yml` is a plain string. The string is long enough (71 chars = 568 bits) for HMAC-SHA256.
+- **Custom `AuthenticationEntryPoint` added to `SecurityConfig`.** Spring Security 7 (shipped with Spring Boot 4) returns 403 by default for anonymous requests to protected endpoints. An explicit entry point calling `res.sendError(401)` was required to satisfy the spec's "no token → 401" requirement.
+- **`spring-boot-flyway` module added to `build.gradle.kts`.** Spring Boot 4 split Flyway autoconfiguration into a standalone module (`org.springframework.boot:spring-boot-flyway`) that is not pulled in transitively. Without it, Flyway silently never ran.
+- **Docker port changed from 5432 → 5434.** The dev machine has a native PostgreSQL instance on 5432; the Docker container was remapped to 5434 in both `docker-compose.yml` and `application.yml` to avoid the conflict.
+
+**Gotchas & constraints:**
+
+- **Spring Boot 4 `@AutoConfigureMockMvc` moved.** The annotation is now at `org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc`, not the Spring Boot 3 path `org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc`.
+- **Tests require a live PostgreSQL on port 5434.** There is no H2 fallback. Run `docker compose up -d` before `./gradlew test`.
+- **`./gradlew test` leaves a JVM process on port 8081.** If `bootRun` follows immediately and fails with "port in use", kill the lingering process: `Get-NetTCPConnection -LocalPort 8081 | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }`.
+- **`LoginRequest` has no `@NotBlank` validation.** Missing/null username falls through to a `BadCredentialsException` (→ 401) rather than a 400. This is intentional — the spec only requires 400 for registration, and revealing which field is wrong on login is a security leak.
+
+---
+
 ## Endpoints
 
 ### POST /auth/register

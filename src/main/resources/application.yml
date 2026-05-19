@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/notes_db
+    url: jdbc:postgresql://localhost:5434/notes_db
     username: notes_user
     password: notes_pass
   jpa:
@@ -20,4 +20,4 @@ app:
     expiration-ms: 86400000
 
 server:
-  port: 8080
+  port: 8081

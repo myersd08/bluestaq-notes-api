@@ -78,6 +78,39 @@ com.bluestaq.notesapi
 ## Key Design Decisions
 
 - **UUID primary keys** — avoids leaking sequential IDs and simplifies distributed scenarios.
-- **`ddl-auto: update`** for local dev — acceptable for a take-home project; production would use Flyway/Liquibase migrations.
+- **`ddl-auto: validate`** in all environments — Flyway owns schema changes; Hibernate only validates that entities match the migrated schema on startup.
 - **No soft deletes** — notes are hard-deleted; out of scope for this project.
 - **Title is optional** — the spec only requires `content`; title improves list usability.
+
+---
+
+## Implemented Features
+
+### Authentication — Fully Implemented (2026-05-19)
+
+**What was built:**
+- `POST /auth/register` — BCrypt-hashes password, persists `User`, returns 201 with `{id, username, createdAt}`
+- `POST /auth/login` — verifies BCrypt hash, returns 200 with `{token, expiresIn}`
+- `JwtAuthFilter` validates every non-`/auth/**` request; populates `SecurityContext` from JWT `sub` (user UUID)
+- All 7 SPEC test scenarios pass against live PostgreSQL via `@SpringBootTest` + MockMvc
+
+**Key files:**
+
+| File | Role |
+|------|------|
+| `model/User.java` | JPA entity + `UserDetails` impl; UUID PK, BCrypt `password_hash` |
+| `security/JwtTokenService.java` | Generate / validate / parse JWT (jjwt 0.12.6); HS256, key from UTF-8 secret bytes |
+| `security/JwtAuthFilter.java` | `OncePerRequestFilter`; extracts Bearer token, loads user by UUID |
+| `config/SecurityConfig.java` | Stateless, CSRF off, `/auth/**` open, custom 401 entry point |
+| `service/AuthService.java` | Register + login business logic |
+| `controller/AuthController.java` | `POST /auth/register`, `POST /auth/login` |
+| `controller/GlobalExceptionHandler.java` | `{status, error, message}` envelope for 400 / 401 / 409 |
+| `db/migration/V1__create_users_table.sql` | Flyway migration for `users` table |
+
+**Deviations from feature doc:**
+- `User` implements `UserDetails` directly (spec implied a separate `UserDetailsService` wrapper — both exist, but the entity carries the interface too)
+- `JwtAuthFilter` uses `UserRepository.findById(UUID)` rather than `UserDetailsService.loadUserByUsername` — JWT `sub` is a UUID, making a username lookup unnecessary
+- `spring-boot-flyway` added to `build.gradle.kts` — required in Spring Boot 4 (not documented in original setup)
+- Docker PostgreSQL moved to port 5434 to avoid conflict with a native install on 5432
+
+**Remaining work:** None — feature is complete.
