@@ -41,6 +41,7 @@ com.bluestaq.notesapi
 | Auth | JWT via jjwt 0.12.6 | Stateless; no server-side session store; straightforward to test |
 | ORM | Spring Data JPA / Hibernate 7 | Reduces CRUD boilerplate; UUID primary keys are first-class in JPA 3.1 |
 | Build | Gradle 8 (Kotlin DSL) | Faster incremental builds than Maven; type-safe DSL |
+| API Docs | springdoc-openapi 3.0.3 + Swagger UI | Generates OpenAPI 3 spec from annotations; interactive UI with JWT auth support |
 | Utilities | Lombok | Reduces boilerplate (getters, constructors) without changing runtime behaviour |
 
 ---
@@ -76,6 +77,10 @@ Flyway migrations run automatically on application startup; the schema is create
 ```
 
 The API is available at **`http://localhost:8081`**.
+
+Once running, the interactive API documentation is available at:
+- **Swagger UI:** `http://localhost:8081/swagger-ui/index.html`
+- **OpenAPI JSON:** `http://localhost:8081/v3/api-docs`
 
 > If port 8081 is already in use (e.g., a previous test run left a JVM running), free it first:
 > ```powershell
@@ -261,10 +266,13 @@ curl http://localhost:8081/notes/<note-id> \
 
 - Refresh token support with rotation
 - Pagination on `GET /notes`
+- Paginated `GET /notes/shared` for getting notes that have been shared
+- Add `DELETE /notes/{id}/share` for removing a share
 - Full-text search on note content
 - Audit log (who accessed or modified a note and when)
 - Rate limiting on auth endpoints
 - `@NotBlank` validation on `LoginRequest` fields (currently returns 401 rather than 400 for missing username — intentional but worth reconsidering)
+- Concurrency capability for shared notes that allows the note to be edited by the owner and shared recipient
 
 ---
 
